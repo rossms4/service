@@ -346,11 +346,11 @@ func (ws *windowsService) Run() error {
 		return err
 	}
 
-	sigChan := make(chan os.Signal)
-
-	signal.Notify(sigChan, os.Interrupt)
-
-	<-sigChan
+	s.Option.funcSingle(optionRunWait, func() {
+		var sigChan = make(chan os.Signal, 2)
+		signal.Notify(sigChan, os.Interrupt)
+		<-sigChan
+	})()
 
 	return ws.i.Stop(ws)
 }
