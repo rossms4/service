@@ -186,36 +186,41 @@ func (ws *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, cha
 		ws.setError(err)
 		return true, 1
 	}
+	exitChannel := ws.Option.channel("exitChannel", make(chan interface{}))
 
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 loop:
 	for {
-		c := <-r
-		switch c.Cmd {
-		case svc.Interrogate:
-			changes <- c.CurrentStatus
-		case svc.Stop:
-			changes <- svc.Status{State: svc.StopPending}
-			if err := ws.i.Stop(ws); err != nil {
-				ws.setError(err)
-				return true, 2
+		select {
+		case ec := <-exitChannel:
+			return false, ec
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Interrogate:
+				changes <- c.CurrentStatus
+			case svc.Stop:
+				changes <- svc.Status{State: svc.StopPending}
+				if err := ws.i.Stop(ws); err != nil {
+					ws.setError(err)
+					return true, 2
+				}
+				break loop
+			case svc.Shutdown:
+				changes <- svc.Status{State: svc.StopPending}
+				var err error
+				if wsShutdown, ok := ws.i.(Shutdowner); ok {
+					err = wsShutdown.Shutdown(ws)
+				} else {
+					err = ws.i.Stop(ws)
+				}
+				if err != nil {
+					ws.setError(err)
+					return true, 2
+				}
+				break loop
+			default:
+				continue loop
 			}
-			break loop
-		case svc.Shutdown:
-			changes <- svc.Status{State: svc.StopPending}
-			var err error
-			if wsShutdown, ok := ws.i.(Shutdowner); ok {
-				err = wsShutdown.Shutdown(ws)
-			} else {
-				err = ws.i.Stop(ws)
-			}
-			if err != nil {
-				ws.setError(err)
-				return true, 2
-			}
-			break loop
-		default:
-			continue loop
 		}
 	}
 

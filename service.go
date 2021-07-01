@@ -253,6 +253,17 @@ func (kv KeyValue) funcSingle(name string, defaultValue func()) func() {
 	return defaultValue
 }
 
+// channel returns the value of the given name, assuming the value is a generic chan.
+// If the value isn't found or is not of the type, the defaultValue is returned.
+func (kv KeyValue) channel(name string, defaultValue chan interface{}) chan interface{} {
+	if v, found := kv[name]; found {
+		if castValue, is := v.(chan interface{}); is {
+			return castValue
+		}
+	}
+	return defaultValue
+}
+
 // Platform returns a description of the system service.
 func Platform() string {
 	if system == nil {
