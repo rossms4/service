@@ -193,7 +193,11 @@ loop:
 	for {
 		select {
 		case ec := <-exitChannel:
-			return false, ec
+			rec, ok := ec.(uint32)
+			if !ok {
+				rec = 0
+			}
+			return false, rec
 		case c := <-r:
 			switch c.Cmd {
 			case svc.Interrogate:
